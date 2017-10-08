@@ -10,7 +10,10 @@
 
     <properties>
         <kotlin.version>1.1.51</kotlin.version>
+        <java.version>1.8</java.version>
         <junit.version>4.12</junit.version>
+        <vertx.version>3.4.2</vertx.version>
+        <kotlinx.coroutines.version>0.14</kotlinx.coroutines.version>
         <main.class>testPackage.TestKt</main.class>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
@@ -34,6 +37,21 @@
             <version>${kotlin.version}</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.jetbrains.kotlinx</groupId>
+            <artifactId>kotlinx-coroutines-core</artifactId>
+            <version>${kotlinx.coroutines.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.jetbrains.kotlinx</groupId>
+            <artifactId>kotlinx-coroutines-jdk8</artifactId>
+            <version>${kotlinx.coroutines.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.vertx</groupId>
+            <artifactId>vertx-core</artifactId>
+            <version>${vertx.version}</version>
+        </dependency>
     </dependencies>
 
     <build>
@@ -46,7 +64,13 @@
                 <groupId>org.jetbrains.kotlin</groupId>
                 <version>${kotlin.version}</version>
 
-                <configuration/>
+                <configuration>
+                    <args>
+                        <arg>-jvm-target</arg>
+                        <arg>${java.version}</arg>
+                        <arg>-Xcoroutines=enable</arg>
+                    </args>
+                </configuration>
                 <executions>
                     <execution>
                         <id>compile</id>
@@ -83,24 +107,83 @@
                 <version>1.2.1</version>
                 <executions>
                     <execution>
-                        <phase>test</phase>
+                        <!--<phase>test</phase>-->
                         <goals>
                             <goal>java</goal>
                         </goals>
+                    </execution>
+                    <execution>
+                        <!-- run the application using the fat jar -->
+                        <id>run-app</id>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <configuration>
+                            <executable>java</executable>
+                            <arguments>
+                                <argument>-jar</argument>
+                                <argument>target/${project.artifactId}-${project.version}-fat.jar</argument>
+                            </arguments>
+                        </configuration>
                     </execution>
                 </executions>
                 <configuration>
                     <mainClass>${main.class}</mainClass>
                 </configuration>
             </plugin>
-            <!--<plugin>-->
-                <!--<groupId>org.codehaus.mojo</groupId>-->
-                <!--<artifactId>exec-maven-plugin</artifactId>-->
-                <!--<version>1.2.1</version>-->
-                <!--<configuration>-->
-                    <!--<mainClass>com.example.Main</mainClass>-->
-                <!--</configuration>-->
-            <!--</plugin>-->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>2.3</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <manifestEntries>
+                                        <Main-Class>${main.class}</Main-Class>
+                                    </manifestEntries>
+                                </transformer>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
+                                    <resource>META-INF/services/io.vertx.core.spi.VerticleFactory</resource>
+                                </transformer>
+                            </transformers>
+                            <artifactSet>
+                            </artifactSet>
+                            <outputFile>${project.build.directory}/${project.artifactId}-${project.version}-fat.jar</outputFile>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
+    <repositories>
+        <repository>
+            <id>bintray-jcenter</id>
+            <url>http://jcenter.bintray.com</url>
+        </repository>
+        <repository>
+            <id>bintray-vorpal-research-kotlin-maven</id>
+            <url>http://dl.bintray.com/vorpal-research/kotlin-maven</url>
+        </repository>
+        <repository>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+            <id>bintray-kotlin-eap-1.1</id>
+            <url>http://dl.bintray.com/kotlin/kotlin-eap-1.1</url>
+        </repository>
+        <repository>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+            <id>bintray-kotlinx-html</id>
+            <url>http://dl.bintray.com/kotlin/kotlinx.html</url>
+        </repository>
+    </repositories>
+
 </project>
