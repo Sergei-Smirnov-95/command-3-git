@@ -57,30 +57,33 @@ fun main(args: Array<String>) = runBlocking<Unit> {
 
 
 suspend fun doNothingUseful() {
+    // "Мнемоническое правило: если функция асинхронная, то должен быть callback, который когда-то дернут.
+    // В данном примере, это делает it, в общем случае это плохая практика. Лучше писать async функции.
+    // Даже в последнем случае нужно отслеживать асинхронные вызовы (разобраться, как именно)."
     val job = launch(Unconfined) {
         var id: String? = null
 //        val deployRes = vxa<String> {
         val deployRes = vxt<AsyncResult<String>> {
             println("Deploy verticle from coroutine")
-            vertx.deployVerticle(FirstVerticle())
+            vertx.deployVerticle(FirstVerticle(), it)
         }
         if (deployRes.succeeded()) {
             id = deployRes.result()
             println("Deployment success")
         } else
             println("Deployment failure")
-        if (id != null){
-            val undeployRes = vxt<AsyncResult<String>> {
+        if (id != null) {
+            val undeployRes = vxt<AsyncResult<Void>> {
                 println("Undeploy verticle from coroutine")
-                vertx.undeploy(id)
+                vertx.undeploy(id, it)
             }
             if (undeployRes.succeeded())
                 println("Undeploy success")
             else
                 println("Undeploy failure")
-            val vxcloseRes = vxt<AsyncResult<String>> {
+            val vxcloseRes = vxt<AsyncResult<Void>> {
                 println("Close vertx")
-                vertx.close()
+                vertx.close(it)
             }
             if (vxcloseRes.succeeded())
                 println("Close success")
