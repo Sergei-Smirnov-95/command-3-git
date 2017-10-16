@@ -9,12 +9,19 @@ import java.io.File
 import io.vertx.core.eventbus.EventBus
 import io.vertx.core.eventbus.Message
 import io.vertx.core.eventbus.MessageConsumer
+import io.vertx.core.json.Json
+import io.vertx.core.json.JsonObject
 import kotlinx.coroutines.experimental.CommonPool
 import kotlinx.coroutines.experimental.Unconfined
 import kotlinx.coroutines.experimental.async
 import kotlinx.coroutines.experimental.launch
 import util.vxt
+import java.nio.file.Files
+import java.nio.file.Paths
+import com.fasterxml.jackson.module.kotlin.*
+import java.net.URI
 
+data class RepoInfo (val url: String, val branch: String)
 
 class RepoLoaderVerticle: AbstractVerticle(){
 
@@ -23,10 +30,14 @@ class RepoLoaderVerticle: AbstractVerticle(){
         val consumer = eb.consumer<String>("RepoLoader")
         consumer.handler { message ->
             launch(Unconfined) {
-                val job = async(CommonPool) { LoadRepo(message) }
+                val repoInfo: RepoInfo = jacksonObjectMapper().readValue(message.body())
+                val job = async(CommonPool) {
+                    LoadRepo(repoInfo)
+                }
                 val status = job.await()
-                message.reply(message.headers().get("repoUrl"))
+                message.reply(repoInfo.url)
             }
+
         }
     }
 
@@ -34,39 +45,29 @@ class RepoLoaderVerticle: AbstractVerticle(){
         println("Verticle stop message")
     }
 
-    suspend fun LoadRepo(message: Message<String>): Unit {
+    suspend fun LoadRepo(repoInfo: RepoInfo): Unit {
 
         val loadRes = vxt<AsyncResult<String>> {
-            val repoUrl = message.headers().get("repoUrl")
-            val repoBranch = message.headers().get("repoBranch")
-            System.out.println("Start loading repo: " + repoUrl)
-
+            System.out.println("Start loading repo: " + repoInfo.url)
             val git: Git;
-            try {
+            val loadToPath = Paths.get("/repos/" + repoInfo.url.hashCode())
+            if (!Files.exists(loadToPath)) {
                 git = org.eclipse.jgit.api.Git.cloneRepository()
-                        .setURI(repoUrl)
-                        .setDirectory(File("/repos/" + repoUrl.hashCode()))
-                        .setBranch(repoBranch)
-                        .call()
+                            .setURI(repoInfo.url)
+                            .setDirectory(loadToPath.toFile())
+                            .setBranch(repoInfo.branch)
+                            .call()
                 git.close()
             }
-            catch (err: Exception){
-                try {
-                    val repo = FileRepositoryBuilder.create(File("/repos/" + repoUrl.hashCode() +".git"));
-                    val git = Git(repo);
-                    git.remoteSetUrl()
-                            .setUri( URIish(repoUrl));
-                    git.pull().setRemoteBranchName(repoBranch).call();
-                    git.close()
-                }
-                catch (err: Exception){
-                    val test = "test";
-                }
+            else {
+                val repo = FileRepositoryBuilder.create(File("/repos/" + repoInfo.url.hashCode() + "/.git"))
+                git = Git(repo);
+                git.remoteSetUrl().setUri( URIish(repoInfo.url))
+                git.pull().setRemoteBranchName(repoInfo.branch).call()
+                git.close()
             }
-
             it.handle(null)
         }
-
     }
 }
 
