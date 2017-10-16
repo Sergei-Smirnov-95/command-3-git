@@ -46,6 +46,7 @@ import kotlin.reflect.KFunction
 */
 
 val vertx = Vertx.vertx()
+val eb = vertx.eventBus()
 
 inline suspend fun vxu(crossinline cb: (Handler<AsyncResult<Void?>>) -> Unit): Void? =
         suspendCoroutine { cont ->

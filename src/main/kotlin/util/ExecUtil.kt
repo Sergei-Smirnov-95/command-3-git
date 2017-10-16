@@ -25,11 +25,9 @@ private suspend fun execResultAsync(executor: Executor, cmdLine: CommandLine): I
     }
 }
 
-suspend fun doInCommandLine(instructions: String){
+suspend fun doInCommandLineAsync(instructions: String): Int{
     val cmdLine = CommandLine.parse(instructions)
-    for (value in cmdLine.arguments)
-        println(value)
     val executor = DefaultExecutor()
     val exitValue = execResultAsync(executor, cmdLine)
-    println(exitValue)
+    return exitValue
 }
