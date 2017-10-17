@@ -14,6 +14,7 @@ import kotlinx.coroutines.experimental.runBlocking
 import util.*
 import io.vertx.core.eventbus.DeliveryOptions
 import io.vertx.core.json.Json
+import io.vertx.core.json.JsonObject
 
 
 val vertx: Vertx = Vertx.vertx()
@@ -43,12 +44,16 @@ suspend fun doSomethingUseful() {
             branches[2] = "build"
             for (i in 0..2){
                 val repoInfo = RepoInfo(repos[i], branches[i])
-                val sender = vertx.eventBus().sender<String>("RepoLoader");
-                val handler = Handler<AsyncResult<Message<String>>> { ar ->
+                val sender = vertx.eventBus().sender<JsonObject>("RepoLoader");
+                val handler = Handler<AsyncResult<Message<JsonObject>>> { ar ->
                     if (ar.succeeded())
                         System.out.println("Repo has been loaded: " + ar.result().body() + "\n");
                 }
-                sender.send(Json.encode(repoInfo), handler);
+                sender.send(JsonObject(
+                        mapOf(
+                            "repoUrl" to repos[i], "repoBranch" to branches[i]
+                        )
+                ), handler);
             }
             id = deployRes.result()
             println("Deployment success")

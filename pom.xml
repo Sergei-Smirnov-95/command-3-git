@@ -57,11 +57,6 @@
             <artifactId>org.eclipse.jgit</artifactId>
             <version>4.9.0.201710071750-r</version>
         </dependency>
-        <dependency>
-            <groupId>com.fasterxml.jackson.module</groupId>
-            <artifactId>jackson-module-kotlin</artifactId>
-            <version>2.9.0</version>
-        </dependency>
     </dependencies>
 
     <build>

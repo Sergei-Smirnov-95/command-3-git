@@ -18,7 +18,6 @@ import kotlinx.coroutines.experimental.launch
 import util.vxt
 import java.nio.file.Files
 import java.nio.file.Paths
-import com.fasterxml.jackson.module.kotlin.*
 import java.net.URI
 
 data class RepoInfo (val url: String, val branch: String)
@@ -27,15 +26,14 @@ class RepoLoaderVerticle: AbstractVerticle(){
 
     override fun start() {
         val eb = vertx.eventBus()
-        val consumer = eb.consumer<String>("RepoLoader")
+        val consumer = eb.consumer<JsonObject>("RepoLoader")
         consumer.handler { message ->
             launch(Unconfined) {
-                val repoInfo: RepoInfo = jacksonObjectMapper().readValue(message.body())
                 val job = async(CommonPool) {
-                    LoadRepo(repoInfo)
+                    LoadRepo(message.body())
                 }
                 val status = job.await()
-                message.reply(repoInfo.url)
+                message.reply(message.body())
             }
 
         }
@@ -45,29 +43,32 @@ class RepoLoaderVerticle: AbstractVerticle(){
         println("Verticle stop message")
     }
 
-    suspend fun LoadRepo(repoInfo: RepoInfo): Unit {
+    suspend fun LoadRepo(repoInfo: JsonObject): Unit {
 
         val loadRes = vxt<AsyncResult<String>> {
-            System.out.println("Start loading repo: " + repoInfo.url)
+            val url = repoInfo.getString("repoUrl");
+            val branch = repoInfo.getString("repoBranch");
+            System.out.println("Start loading repo: " + url)
             val git: Git;
-            val loadToPath = Paths.get("/repos/" + repoInfo.url.hashCode())
+            val loadToPath = Paths.get("/repos/" + url.hashCode())
             if (!Files.exists(loadToPath)) {
                 git = org.eclipse.jgit.api.Git.cloneRepository()
-                            .setURI(repoInfo.url)
+                            .setURI(url)
                             .setDirectory(loadToPath.toFile())
-                            .setBranch(repoInfo.branch)
+                            .setBranch(branch)
                             .call()
                 git.close()
             }
             else {
-                val repo = FileRepositoryBuilder.create(File("/repos/" + repoInfo.url.hashCode() + "/.git"))
+                val repo = FileRepositoryBuilder.create(File("/repos/" + url.hashCode() + "/.git"))
                 git = Git(repo);
-                git.remoteSetUrl().setUri( URIish(repoInfo.url))
-                git.pull().setRemoteBranchName(repoInfo.branch).call()
+                git.remoteSetUrl().setUri( URIish(url))
+                git.pull().setRemoteBranchName(branch).call()
                 git.close()
             }
             it.handle(null)
         }
+
     }
 }
 
