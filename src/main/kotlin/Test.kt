@@ -28,3 +28,13 @@ suspend fun setUpBuildMessageListenerAsync(eb: EventBus){
     }
 }
 
+
+/*
+fun foo() {
+    val buildDescription = BuildDescription {
+        Step (
+            steps.CreateDirectory(dir = ...)
+        )
+    }
+}
+*/
