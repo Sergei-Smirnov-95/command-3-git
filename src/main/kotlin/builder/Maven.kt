@@ -37,7 +37,7 @@ abstract class OperationOption(val key: String, val value: String?=null): Render
     }
 }
 
-class Path(path: String): OperationOption(key = "r", value = path)
+class Path(path: String): OperationOption(key = "f", value = path)
 class Option(key: String, value: String?): OperationOption(key, value)
 
 class Mvn: Renderable {

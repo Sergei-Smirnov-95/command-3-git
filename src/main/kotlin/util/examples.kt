@@ -79,3 +79,13 @@ suspend fun doNothingUseful() {
         }
     }
 }
+
+/*
+fun foo() {
+    val buildDescription = BuildDescription {
+        Step (
+            steps.CreateDirectory(dir = ...)
+        )
+    }
+}
+*/

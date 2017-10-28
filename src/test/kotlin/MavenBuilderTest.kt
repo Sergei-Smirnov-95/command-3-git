@@ -21,9 +21,9 @@ class MavenBuilderTest {
     @Test
     fun testMultipleNoOptions() {
         val res = mvn {
-            clean { }
-            pckg { }
-            test { }
+            clean {}
+            pckg {}
+            test {}
         }
         assertEquals("mvn clean package test", res.toString())
     }
@@ -43,7 +43,7 @@ class MavenBuilderTest {
                 option("key", "value")
             }
         }
-        assertEquals("mvn clean -e -ff package -r /some/path -o test -key value", res.toString())
+        assertEquals("mvn clean -e -ff package -f /some/path -o test -key value", res.toString())
     }
 }
 
