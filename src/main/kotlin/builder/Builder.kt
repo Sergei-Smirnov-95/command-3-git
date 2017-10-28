@@ -38,8 +38,8 @@ class BuildVerticle() : AbstractVerticle() {
 }
 
 suspend fun deployBuildVerticleAsync(): String {
-    return vxa<String> {
-        vertx.deployVerticle(BuildVerticle(), it)
-    }
+    return vxa<String> ({ callback ->
+        vertx.deployVerticle(BuildVerticle(), callback)
+    })
 }
 
