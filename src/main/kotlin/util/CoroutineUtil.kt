@@ -73,8 +73,8 @@ inline suspend fun <T> vxa(crossinline cb: (Handler<AsyncResult<T>>) -> Unit): T
 
 class WithExceptionsContext(val handler: (Throwable) -> Unit) :
         AbstractCoroutineContextElement(CoroutineExceptionHandler.Key),
-        CoroutineExceptionHandler
-//        Loggable
+        CoroutineExceptionHandler,
+        Loggable
 {
     override fun handleException(context: CoroutineContext, exception: Throwable) =
             handler(exception)

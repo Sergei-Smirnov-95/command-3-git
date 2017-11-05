@@ -11,6 +11,7 @@ import kotlinx.coroutines.experimental.Unconfined
 import kotlinx.coroutines.experimental.async
 import kotlinx.coroutines.experimental.launch
 import util.vxt
+import util.Loggable
 import java.nio.file.Files
 import java.nio.file.Paths
 import com.fasterxml.jackson.module.kotlin.*
@@ -18,10 +19,11 @@ import java.lang.Math.abs
 
 data class RepoInfo(val url: String, val branch: String, val location: String = "/tmp/")
 
-class RepoLoaderVerticle : AbstractVerticle() {
+class RepoLoaderVerticle : AbstractVerticle(),Loggable {
 
     override fun start() {
-        println("Load verticle start message")
+        //println("Verticle RepoLoader start message")
+        log.info("Verticle RepoLoader start message")
         val eb = vertx.eventBus()
         val consumer = eb.consumer<String>("RepoLoader")
         consumer.handler { message ->
@@ -37,7 +39,8 @@ class RepoLoaderVerticle : AbstractVerticle() {
     }
 
     override fun stop() {
-        println("Verticle stop message")
+        //println("Verticle stop message")
+        log.info("Verticle RepoLoader stop message")
     }
 
     suspend fun LoadRepo(repoInfo: RepoInfo): Unit {

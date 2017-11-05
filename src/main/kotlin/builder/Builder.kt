@@ -8,10 +8,11 @@ import kotlinx.coroutines.experimental.launch
 import util.*
 
 
-class BuildVerticle() : AbstractVerticle() {
+class BuildVerticle() : AbstractVerticle(),Loggable {
 
     override fun start() {
-        println("BuildVerticle start message")
+        //println("BuildVerticle start message")
+        log.info("BuildVerticle start message")
         eb.consumer<JsonObject>("builder.build") { message ->
             if (checkMessage(message)) {
                 val body = message.body()
@@ -28,7 +29,8 @@ class BuildVerticle() : AbstractVerticle() {
     }
 
     override fun stop() {
-        println("BuildVerticle stop message")
+        //println("BuildVerticle stop message")
+        log.info("BuildVerticle stop message")
     }
 
 
