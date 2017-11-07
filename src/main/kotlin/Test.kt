@@ -52,25 +52,22 @@ suspend fun doSomethingUseful() {
             types[3] = "git"
 
             for (i in 0..3){
-                val repoInfo = RepoInfo(
-                        repos[i],
-                        branches[i],
-                        "/repos/ " + repos[i].hashCode(),
-                        types[i]
-                )
+                val repoInfo = repo {
+                    url(repos[i])
+                    branch(branches[i])
+                    loadPath("/repos/ " + repos[i].hashCode())
+                    type(types[i])
+                }
                 val sender = vertx.eventBus().sender<JsonObject>("RepoLoader");
                 val handler = Handler<AsyncResult<Message<JsonObject>>> { ar ->
                     if (ar.succeeded())
                         System.out.println("Repo has been loaded: " + ar.result().body() + "\n");
                 }
-                sender.send(JsonObject(
-                        Json.encode(repoInfo)
-                ), handler);
+                sender.send(repoInfo.paramsObj, handler);
             }
             id = deployRes.result()
             println("Deployment success")
         } else
             println("Deployment failure")
-
     }
 }
