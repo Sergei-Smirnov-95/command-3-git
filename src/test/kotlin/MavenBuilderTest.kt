@@ -45,5 +45,19 @@ class MavenBuilderTest {
         }
         assertEquals("mvn clean -e -ff package -f /some/path -o test -key value", res.toString())
     }
+
+    @Test
+    fun testDefine() {
+        val res = mvn {
+            custom("help:describe") {
+                define("cmd=compiler:compile")
+            }
+            custom("install") {
+                define("maven.test.skip=true")
+            }
+        }
+        assertEquals("mvn help:describe -Dcmd=compiler:compile install -Dmaven.test.skip=true", res.toString())
+    }
+
 }
 

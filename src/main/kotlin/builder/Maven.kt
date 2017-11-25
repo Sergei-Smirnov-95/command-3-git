@@ -21,24 +21,27 @@ abstract class MavenOperation(val name: String): Renderable{
     }
 
     fun option(key: String, value: String?=null) = initOption(Option(key, value)) {}
-    fun path(path: String) = initOption(builder.Path(path = path)) {}
+    fun path(path: String) = initOption(Path(path = path)) {}
+    fun define(property: String) = initOption(Define(property = property)) {}
 }
 
+class MavenCustomOperation(name: String): MavenOperation(name)
 class MavenPackage: MavenOperation("package")
 class MavenTest: MavenOperation("test")
 class MavenClean: MavenOperation("clean")
 
-abstract class OperationOption(val key: String, val value: String?=null): Renderable{
+abstract class OperationOption(val key: String, val value: String?=null, val separator: String = " "): Renderable{
     override fun render(builder: StringBuilder){
         if (value != null)
-            builder.append(" -${this.key} ${this.value}")
+            builder.append(" -${this.key}${this.separator}${this.value}")
         else
             builder.append(" -${this.key}")
     }
 }
 
+class Option(key: String, value: String?, separator: String = " "): OperationOption(key, value, separator)
 class Path(path: String): OperationOption(key = "f", value = path)
-class Option(key: String, value: String?): OperationOption(key, value)
+class Define(property: String): OperationOption(key = "D", value = property, separator = "")
 
 class Mvn: Renderable {
     val opertaions = arrayListOf<MavenOperation>()
@@ -62,9 +65,13 @@ class Mvn: Renderable {
         return operation
     }
 
-    fun test(init: MavenTest.() -> Unit) = initOperation(MavenTest(), init)
-    fun clean(init: MavenClean.() -> Unit) = initOperation(MavenClean(), init)
-    fun pckg(init: MavenPackage.() -> Unit) = initOperation(MavenPackage(), init)
+    fun test(init: MavenTest.() -> Unit = {}) = initOperation(MavenTest(), init)
+    fun clean(init: MavenClean.() -> Unit = {}) = initOperation(MavenClean(), init)
+    fun pckg(init: MavenPackage.() -> Unit = {}) = initOperation(MavenPackage(), init)
+    fun custom(
+            operation: String,
+            init: MavenCustomOperation.() -> Unit = {}
+    ) = initOperation(MavenCustomOperation(operation), init)
 }
 
 fun mvn(init: Mvn.() -> Unit): Mvn {
