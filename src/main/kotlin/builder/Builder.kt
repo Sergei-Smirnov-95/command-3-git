@@ -11,7 +11,6 @@ import util.*
 class BuildVerticle() : AbstractVerticle(),Loggable {
 
     override fun start() {
-        //println("BuildVerticle start message")
         log.info("BuildVerticle start message")
         eb.consumer<JsonObject>("builder.build") { message ->
             if (checkMessage(message)) {
@@ -29,7 +28,6 @@ class BuildVerticle() : AbstractVerticle(),Loggable {
     }
 
     override fun stop() {
-        //println("BuildVerticle stop message")
         log.info("BuildVerticle stop message")
     }
 

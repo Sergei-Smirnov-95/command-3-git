@@ -14,6 +14,7 @@ import io.vertx.core.eventbus.EventBus
 import io.vertx.core.json.Json
 import io.vertx.core.json.JsonObject
 import java.io.File
+//import util.GlobalLogging.log
 
 fun main(args: Array<String>) = runBlocking<Unit> {
 //    db_shenanigans()
@@ -71,6 +72,7 @@ suspend fun doSomethingUseful() {
         val rlVerticle = RepoLoaderVerticle()
         val deployRes = vxt<AsyncResult<String>> {
             println("Deploy verticle from coroutine")
+            //log.info("Deploy verticle from coroutine")
             vertx.deployVerticle(rlVerticle, it)
         }
 
@@ -94,9 +96,10 @@ suspend fun doSomethingUseful() {
             }
             id = deployRes.result()
             println("Deployment success")
+            //log.info("Deployment success")
         } else
             println("Deployment failure")
-
+            //log.info("Deployment failure")
     }
 }
 
@@ -105,6 +108,7 @@ suspend fun setUpBuildMessageListenerAsync(eb: EventBus) {
     consumer.handler { message ->
         val body = message.body()
         println("Response to ${body.getString("for")}: ${body.getString("result")}")
+        //log.info("Response to ${body.getString("for")}: ${body.getString("result")}")
     }
     vxu {
         consumer.completionHandler(it)

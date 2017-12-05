@@ -8,6 +8,7 @@ import io.vertx.ext.sql.SQLConnection
 import kotlinx.coroutines.experimental.launch
 import util.*
 import java.io.*
+//import util.GlobalLogging.log
 
 suspend fun db_shenanigans() {
     val settings = File("src/settings/db-settings.json")
@@ -17,6 +18,7 @@ suspend fun db_shenanigans() {
     val result = vxa<ResultSet> { connection.query("select * from test;", it) }
     for (res in result.results) {
         println(res)
+        //log.info({res})
     }
     vxu { connection.close(it) }
     vxu { client.close(it) }

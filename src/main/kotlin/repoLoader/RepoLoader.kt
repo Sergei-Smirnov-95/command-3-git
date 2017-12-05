@@ -22,7 +22,6 @@ data class RepoInfo(val url: String, val branch: String, val location: String = 
 class RepoLoaderVerticle : AbstractVerticle(),Loggable {
 
     override fun start() {
-        //println("Verticle RepoLoader start message")
         log.info("Verticle RepoLoader start message")
         val eb = vertx.eventBus()
         val consumer = eb.consumer<String>("RepoLoader")
@@ -39,7 +38,6 @@ class RepoLoaderVerticle : AbstractVerticle(),Loggable {
     }
 
     override fun stop() {
-        //println("Verticle stop message")
         log.info("Verticle RepoLoader stop message")
     }
 
