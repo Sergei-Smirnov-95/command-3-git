@@ -2,16 +2,85 @@ package repoloader
 
 import io.vertx.core.AbstractVerticle
 import io.vertx.core.AsyncResult
+import io.vertx.core.eventbus.Message
+import io.vertx.core.json.Json
 import kotlinx.coroutines.experimental.CommonPool
 import kotlinx.coroutines.experimental.Unconfined
 import kotlinx.coroutines.experimental.async
 import kotlinx.coroutines.experimental.launch
-import util.vxt
 import java.nio.file.Files
 import java.nio.file.Paths
 import io.vertx.core.json.JsonObject
 import org.apache.commons.exec.CommandLine
 import org.apache.commons.exec.DefaultExecutor
+import util.*
+
+abstract class ConsoleRepoloader {
+    protected val executor = DefaultExecutor()
+    abstract val cmd: String
+    abstract fun pullCommand (url: String, branch: String) : CommandLine
+
+    open fun load (repoInfo: JsonObject) : Unit {
+        val url = repoInfo.getString("url");
+        val branch = repoInfo.getString("branch");
+        val loadPath = repoInfo.getString("loadPath")
+        val loadToPath = Paths.get(loadPath)
+        if (!Files.exists(loadToPath)) {
+            Files.createDirectory(loadToPath);
+            executor.setWorkingDirectory(loadToPath.toFile())
+            val init = CommandLine.parse(
+                    String.format("%s init", cmd)
+            )
+            executor.execute(init)
+        }
+        executor.setWorkingDirectory(loadToPath.toFile())
+        executor.execute(pullCommand(url, branch))
+    }
+}
+class GitLoader : ConsoleRepoloader () {
+
+    override val cmd: String
+        get() = "git"
+
+    override fun pullCommand(url: String, branch: String): CommandLine {
+        return CommandLine.parse(
+                String.format(
+                        "git pull \"%s\" %s",
+                        url,
+                        branch
+                )
+        )
+    }
+}
+class HgLoader : ConsoleRepoloader () {
+
+    override val cmd: String
+        get() = "hg"
+
+    override fun pullCommand(url: String, branch: String): CommandLine {
+        return CommandLine.parse(
+                String.format(
+                        "hg pull \"%s\" -b %s",
+                        url,
+                        branch
+                )
+        )
+    }
+    override fun load(repoInfo: JsonObject) {
+        super.load(repoInfo)
+        val update = CommandLine.parse("hg update")
+        executor.execute(update)
+    }
+}
+object RepoloadersFactory {
+    fun newLoader(type: String) : ConsoleRepoloader? {
+        when (type) {
+            "git"   -> return GitLoader()
+            "hg"    -> return HgLoader()
+            else    -> return null
+        }
+    }
+}
 
 data class RepoInfo(val url: String, val branch: String, val loadPath: String, val type: String)
 class RepoLoaderVerticle : AbstractVerticle() {
@@ -36,37 +105,29 @@ class RepoLoaderVerticle : AbstractVerticle() {
 
     suspend fun LoadRepo(repoInfo: JsonObject): Unit {
 
+
         val loadRes = vxt<AsyncResult<String>> {
-            val url = repoInfo.getString("url");
-            val branch = repoInfo.getString("branch");
             val type = repoInfo.getString("type");
-            val loadPath = repoInfo.getString("loadPath")
-            System.out.println("Start loading repo: " + url)
-            val loadToPath = Paths.get(loadPath)
-            val executor = DefaultExecutor()
-            if (!Files.exists(loadToPath)) {
-                Files.createDirectory(loadToPath);
-                executor.setWorkingDirectory(loadToPath.toFile())
-                val init = CommandLine.parse(
-                        String.format("%s init", type)
-                )
-                executor.execute(init)
-            }
-            val pull = CommandLine.parse(
-                    String.format(
-                            "%s pull \"%s\" %s",
-                            type,
-                            url,
-                            if (type == "hg") "-b " + branch else branch
-                    )
-            )
-            executor.setWorkingDirectory(loadToPath.toFile())
-            executor.execute(pull)
-            if (type == "hg") {
-                val update = CommandLine.parse("hg update")
-                executor.execute(update)
-            }
+            val loader = RepoloadersFactory.newLoader(type)
+            if (loader != null)
+                loader.load(repoInfo)
+            else
+                throw Exception("Wrong repos type")
             it.handle(null)
         }
     }
 }
+
+suspend fun deployLoadVerticleAsync(): String {
+    return vxa<String>({ callback ->
+        vertx.deployVerticle(RepoLoaderVerticle(), callback)
+    })
+}
+
+suspend fun loadRepositoryAsync(info: JsonObject): Message<JsonObject> {
+    return vxa<Message<JsonObject>> {
+        eb.send("RepoLoader", info, it)
+    }
+}
+
+

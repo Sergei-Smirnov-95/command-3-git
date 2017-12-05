@@ -1,25 +1,38 @@
 package testPackage
 
+import builder.*
 import repoloader.*
 import io.vertx.core.AsyncResult
 import io.vertx.core.Handler
-import io.vertx.core.Vertx
 import io.vertx.core.eventbus.Message
 import kotlinx.coroutines.experimental.Unconfined
-import kotlinx.coroutines.experimental.delay
 import kotlinx.coroutines.experimental.launch
 import kotlinx.coroutines.experimental.runBlocking
 import util.*
-import io.vertx.core.eventbus.DeliveryOptions
+import io.vertx.core.eventbus.EventBus
 import io.vertx.core.json.Json
 import io.vertx.core.json.JsonObject
 
-
-val vertx: Vertx = Vertx.vertx()
-
 fun main(args: Array<String>) = runBlocking<Unit> {
-    doSomethingUseful()
+    val emb = EmbeddedBuilder()
+    emb.init()
+    emb.run {
+        repo {
+            url("https://github.com/JetBrains/kotlin-examples.git")
+            branch("master")
+            type("git")
+            loadPath("\\repos\\kotlin")
+        }
+        mvn {
+            test {
+                path("/tmp/1/maven/hello-world")
+            }
+        }
+    }
 }
+
+
+
 
 suspend fun doSomethingUseful() {
     val job = launch(Unconfined) {
@@ -52,22 +65,28 @@ suspend fun doSomethingUseful() {
             types[3] = "git"
 
             for (i in 0..3){
-                val repoInfo = repo {
-                    url(repos[i])
-                    branch(branches[i])
-                    loadPath("/repos/ " + repos[i].hashCode())
-                    type(types[i])
-                }
+                val repoInfo = RepoInfo(
+                        repos[i],
+                        branches[i],
+                        "/repos/ " + repos[i].hashCode(),
+                        types[i]
+                )
                 val sender = vertx.eventBus().sender<JsonObject>("RepoLoader");
                 val handler = Handler<AsyncResult<Message<JsonObject>>> { ar ->
                     if (ar.succeeded())
                         System.out.println("Repo has been loaded: " + ar.result().body() + "\n");
                 }
-                sender.send(repoInfo.paramsObj, handler);
+                sender.send(JsonObject(
+                        Json.encode(repoInfo)
+                ), handler);
             }
             id = deployRes.result()
             println("Deployment success")
         } else
             println("Deployment failure")
+
     }
 }
+
+
+
