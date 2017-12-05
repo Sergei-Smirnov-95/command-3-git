@@ -1,6 +1,6 @@
 package testPackage
 
-import builder.*
+import database.deployDBVerticleAsync
 import repoLoader.RepoInfo
 import repoLoader.RepoLoaderVerticle
 import io.vertx.core.AsyncResult
@@ -13,32 +13,44 @@ import util.*
 import io.vertx.core.eventbus.EventBus
 import io.vertx.core.json.Json
 import io.vertx.core.json.JsonObject
+import java.io.File
 
 fun main(args: Array<String>) = runBlocking<Unit> {
-    val buildVerticle = deployBuildVerticleAsync()
-    var loadVerticle = deployLoadVerticleAsync()
-    try {
-        setUpBuildMessageListenerAsync(eb)
-        val repoInfo = RepoInfo("https://github.com/JetBrains/kotlin-examples.git", "master")
-        var loadResult = loadRepositoryAsync(repoInfo)
-        for (i in 1..5) {
-            doInCommandLineAsync("cp -r ${loadResult.body()} /tmp/$i")
-        }
-        for (i in 1..5) {
-            val builder = mvn {
-                test {
-                    path("/tmp/$i/maven/hello-world")
-                }
-            }
-            eb.publish("builder.build", JsonObject(mapOf("id" to "$i", "command" to builder.toString())))
-        }
-    } catch (e: Exception) {
-        println(e.message)
-    } finally {
-        vxu { vertx.undeploy(buildVerticle, it) }
-        vxu { vertx.undeploy(loadVerticle, it) }
-        vxu { vertx.close(it) }
-    }
+//    db_shenanigans()
+//    val buildVerticle = deployBuildVerticleAsync()
+//    var loadVerticle = deployLoadVerticleAsync()
+//    try {
+//        setUpBuildMessageListenerAsync(eb)
+//        val repoInfo = RepoInfo("https://github.com/JetBrains/kotlin-examples.git", "master")
+//        var loadResult = loadRepositoryAsync(repoInfo)
+//        for (i in 1..5) {
+//            doInCommandLineAsync("cp -r ${loadResult.body()} /tmp/$i")
+//        }
+//        for (i in 1..5) {
+//            val builder = mvn {
+//                test {
+//                    path("/tmp/$i/maven/hello-world")
+//                }
+//            }
+//            eb.publish("builder.build", JsonObject(mapOf("id" to "$i", "command" to builder.toString())))
+//        }
+//    } catch (e: Exception) {
+//        println(e.message)
+//    } finally {
+//        vxu { vertx.undeploy(buildVerticle, it) }
+//        vxu { vertx.undeploy(loadVerticle, it) }
+//        vxu { vertx.close(it) }
+//    }
+    deployDBVerticleAsync()
+    val file = File("src/settings/db-settings.json")
+    val bytes = file.readBytes()
+    val msg = vxa<Message<String>> {
+        eb.send("database.create",
+                JsonObject(mapOf("id" to "src/settings/db-settings.json",
+                                "artifact" to file.readBytes())),
+                it)}
+    println(msg.body())
+    vxu { vertx.close(it) }
 }
 
 suspend fun deployLoadVerticleAsync(): String {

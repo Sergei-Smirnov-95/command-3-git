@@ -6,11 +6,11 @@ import io.vertx.core.Vertx
 import io.vertx.core.eventbus.DeliveryOptions
 import io.vertx.core.eventbus.EventBus
 import io.vertx.core.eventbus.Message
+import kotlinx.coroutines.experimental.*
 //import io.vertx.ext.web.RoutingContext
-import kotlinx.coroutines.experimental.CoroutineExceptionHandler
-import kotlinx.coroutines.experimental.CoroutineName
 import java.lang.Error
 import java.lang.reflect.Method
+import java.util.concurrent.TimeUnit
 import kotlin.coroutines.experimental.AbstractCoroutineContextElement
 import kotlin.coroutines.experimental.CoroutineContext
 import kotlin.coroutines.experimental.intrinsics.suspendCoroutineOrReturn
@@ -85,6 +85,20 @@ suspend fun <ReturnType> EventBus.sendAsync(address: String, message: Any, deliv
     return vxa { send(address, message, deliveryOptions, it) }
 }
 
+class VertxContext(val vertx: Vertx) : CoroutineDispatcher() {
+    override fun dispatch(context: CoroutineContext, block: Runnable) =
+            vertx.runOnContext({ block.run() })
+
+//    override fun scheduleResumeAfterDelay(time: Long, unit: TimeUnit, continuation: CancellableContinuation<Unit>) {
+//        val id = vertx.setTimer(unit.toMillis(time), { ResumeUndispatchedRunnable(this, continuation).run() })
+//        continuation.invokeOnCompletion { vertx.cancelTimer(id) }
+//    }
+//
+//    override fun invokeOnTimeout(time: Long, unit: TimeUnit, block: Runnable): DisposableHandle =
+//            DisposableVertxTimerHandle(
+//                    vertx,
+//                    vertx.setTimer(unit.toMillis(time), { block.run() }))
+}
 
 
 

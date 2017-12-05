@@ -1,4 +1,4 @@
-package test
+package builder
 
 import builder.mvn
 import org.junit.Test

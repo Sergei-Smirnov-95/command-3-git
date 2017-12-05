@@ -18,7 +18,7 @@ class BuildVerticle() : AbstractVerticle(),Loggable {
                 val body = message.body()
                 val command = body.getString("command")
                 val commandId = body.getString("id")
-                launch(Unconfined) {
+                launch(VertxContext(vertx)) {
                     val res = doInCommandLineAsync(command)
                     eb.publish("results.build", JsonObject(
                             mapOf("for" to commandId, "result" to res.toString()))
