@@ -13,9 +13,14 @@ import util.*
 import io.vertx.core.eventbus.EventBus
 import io.vertx.core.json.Json
 import io.vertx.core.json.JsonObject
-import java.io.File
+import kotlinx.coroutines.experimental.delay
 
 fun main(args: Array<String>) = runBlocking<Unit> {
+    if (args.size == 2)
+        testDB(args[0], args[1])
+    else
+        testDB(args[0], args[1], args[2])
+//    testDBCreate(args[0], args[1])
 //    db_shenanigans()
 //    val buildVerticle = deployBuildVerticleAsync()
 //    var loadVerticle = deployLoadVerticleAsync()
@@ -41,15 +46,39 @@ fun main(args: Array<String>) = runBlocking<Unit> {
 //        vxu { vertx.undeploy(loadVerticle, it) }
 //        vxu { vertx.close(it) }
 //    }
+}
+
+suspend fun testDB(operation: String, key: String, path: String? = null){
+    if (operation !in arrayListOf<String>("create", "read", "update", "delete"))
+        return
+    if (operation != "delete" && path == null)
+        return
+    setUpDBMessageListenerAsync(eb)
     deployDBVerticleAsync()
-    val file = File("src/settings/db-settings.json")
-    val bytes = file.readBytes()
-    val msg = vxa<Message<String>> {
-        eb.send("database.create",
-                JsonObject(mapOf("id" to "src/settings/db-settings.json",
-                                "artifact" to file.readBytes())),
-                it)}
-    println(msg.body())
+    eb.publish("database.$operation", JsonObject(mapOf(
+            "id" to key,
+            "artifact" to path)))
+    delay(10000)
+    vxu { vertx.close(it) }
+}
+
+suspend fun testDBCreate(key: String, path:String) {
+    setUpDBMessageListenerAsync(eb)
+    deployDBVerticleAsync()
+    eb.publish("database.create", JsonObject(mapOf(
+            "id" to key,
+            "artifact" to path)))
+    delay(1000)
+    vxu { vertx.close(it) }
+}
+
+suspend fun testDBRead(key: String, path:String) {
+    setUpDBMessageListenerAsync(eb)
+    deployDBVerticleAsync()
+    eb.publish("database.read", JsonObject(mapOf(
+            "id" to "4",
+            "artifact" to "/tmp/binary3")))
+    delay(10000)
     vxu { vertx.close(it) }
 }
 
@@ -111,4 +140,13 @@ suspend fun setUpBuildMessageListenerAsync(eb: EventBus) {
     }
 }
 
-
+suspend fun setUpDBMessageListenerAsync(eb: EventBus) {
+    val consumer = eb.consumer<JsonObject>("results.database")
+    consumer.handler { message ->
+        val body = message.body()
+        println("Response to ${body.getString("for")}: ${body.getString("result") } (${body.getString("code")})")
+    }
+    vxu {
+        consumer.completionHandler(it)
+    }
+}
