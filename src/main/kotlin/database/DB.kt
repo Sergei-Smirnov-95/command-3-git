@@ -20,53 +20,6 @@ class DataBaseVerticle() : AbstractVerticle(), Loggable {
     override fun start() {
         for (operation in arrayListOf<String>("create", "read", "update", "delete"))
             registerConsumer(operation)
-//        eb.consumer<JsonObject>("database.create") { message ->
-//            log.info("Create request received")
-//            val request = message.body()
-//            if (requestOK("create", request)) {
-//                val key = request.getString("id")
-//                val path = request.getString("artifact")
-//                val data = File(path).readBytes().toHex()
-//                launch(VertxContext(vertx)) {
-//                    connection = connection.getConnectionAsync(client)
-//                    if (!keyInDatabase(key, connection!!)) {
-//                        connection!!.execAsync(
-//                                "INSERT INTO artifacts (key, data) VALUES ('$key', decode('$data', 'hex'))")
-//                        publishResults(key, "create", "OK", 0)
-//                    }
-//                    else{
-//                        message.fail(2, "Wrong key")
-//                    }
-//                }
-//            } else
-//                message.fail(1, "Wrong format")
-//        }
-//        eb.consumer<JsonObject>("database.read") { message ->
-//            log.info("Read request received")
-//            val request = message.body()
-//            if (requestOK("create", request)) {
-//                val key = request.getString("id")
-//                val path = request.getString("artifact")
-//                launch(VertxContext(vertx)) {
-//                    connection = connection.getConnectionAsync(client)
-//                    if (keyInDatabase(key, connection!!)) {
-//                        val fetchResult = connection!!.queryAsync(
-//                                "SELECT encode(data, 'hex') FROM artifacts WHERE key='$key';")
-//                        for (item in fetchResult.results){
-//                            File(path).writeBytes(item.getString(0).toByteArray())
-//                        }
-//                        publishResults(key, "read", "OK", 0)
-//                    }
-//                    else
-//                        message.fail(2, "Wrong key")
-//                }
-//            }
-//            else
-//                message.fail(1, "Wrong format")
-//        }
-//        eb.consumer<JsonObject>("database.update") { message ->
-//
-//        }
         log.info("Database verticle started")
     }
 
@@ -136,10 +89,15 @@ class DataBaseVerticle() : AbstractVerticle(), Loggable {
             if (keyInDatabase(key, connection!!)) {
                 val fetchResult = connection!!.queryAsync(
                         "SELECT encode(data, 'hex') FROM artifacts WHERE key='$key';")
-                for (item in fetchResult.results){
-                    File(path).writeBytes(item.getString(0).toByteArray())
+                val file = File(path)
+                if (file.createNewFile()) {
+                    for (item in fetchResult.results)
+                        file.writeBytes(item.getString(0).toByteArray())
+                    publishResults(key, "read", "OK", 0)
+
+                } else {
+                    publishResults(key, "read", "File exists", 2)
                 }
-                publishResults(key, "read", "OK", 0)
             }
             else
                 publishResults(key, "read", "Wrong key", 1)
@@ -189,7 +147,6 @@ class DataBaseVerticle() : AbstractVerticle(), Loggable {
 
     private suspend fun keyInDatabase(key: String, connection: SQLConnection): Boolean{
         val countQR = connection.queryAsync("SELECT count(*) FROM artifacts WHERE key = '$key';")
-        log.info("SELECT count(*) FROM artifacts WHERE key = '$key';")
         return countQR.getResults().get(0).getInteger(0) == 1
     }
 
