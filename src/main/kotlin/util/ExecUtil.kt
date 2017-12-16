@@ -26,9 +26,10 @@ private suspend fun execResultAsync(executor: Executor, cmdLine: CommandLine): I
     }
 }
 
-suspend fun doInCommandLineAsync(instructions: String, path: String? = null): Int{
+suspend fun doInCommandLineAsync(instructions: String, cwd: String, path: String? = null): Int{
     val cmdLine = CommandLine.parse(instructions)
     val executor = DefaultExecutor()
+    executor.setWorkingDirectory(File(cwd))
     val streamHandler: PumpStreamHandler
     if (path != null) {
         val out = FileOutputStream(path, true)

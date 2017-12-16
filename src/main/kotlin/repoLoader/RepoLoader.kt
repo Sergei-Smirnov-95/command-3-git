@@ -1,70 +1,131 @@
-package repoLoader
+package repoloader
 
 import io.vertx.core.AbstractVerticle
 import io.vertx.core.AsyncResult
-import org.eclipse.jgit.api.Git
-import org.eclipse.jgit.storage.file.FileRepositoryBuilder
-import org.eclipse.jgit.transport.URIish
-import java.io.File
+import io.vertx.core.eventbus.Message
+import io.vertx.core.json.Json
 import kotlinx.coroutines.experimental.CommonPool
-import kotlinx.coroutines.experimental.Unconfined
 import kotlinx.coroutines.experimental.async
 import kotlinx.coroutines.experimental.launch
-import util.vxt
-import util.Loggable
 import java.nio.file.Files
 import java.nio.file.Paths
-import com.fasterxml.jackson.module.kotlin.*
-import java.lang.Math.abs
+import io.vertx.core.json.JsonObject
+import org.apache.commons.exec.CommandLine
+import org.apache.commons.exec.DefaultExecutor
+import util.*
 
-data class RepoInfo(val url: String, val branch: String, val location: String = "/tmp/")
+abstract class ConsoleRepoloader {
+    protected val executor = DefaultExecutor()
+    abstract val cmd: String
+    abstract fun pullCommand (url: String, branch: String) : CommandLine
 
-class RepoLoaderVerticle : AbstractVerticle(),Loggable {
+    open fun load (repoInfo: JsonObject) : Unit {
+        val url = repoInfo.getString("url");
+        val branch = repoInfo.getString("branch");
+        val loadPath = repoInfo.getString("loadPath")
+        val loadToPath = Paths.get(loadPath)
+        if (!Files.exists(loadToPath)) {
+            Files.createDirectory(loadToPath);
+            executor.setWorkingDirectory(loadToPath.toFile())
+            val init = CommandLine.parse(
+                    String.format("%s init", cmd)
+            )
+            executor.execute(init)
+        }
+        executor.setWorkingDirectory(loadToPath.toFile())
+        executor.execute(pullCommand(url, branch))
+    }
+}
+class GitLoader : ConsoleRepoloader () {
+
+    override val cmd: String
+        get() = "git"
+
+    override fun pullCommand(url: String, branch: String): CommandLine {
+        return CommandLine.parse(
+                String.format(
+                        "git pull \"%s\" %s",
+                        url,
+                        branch
+                )
+        )
+    }
+}
+class HgLoader : ConsoleRepoloader () {
+
+    override val cmd: String
+        get() = "hg"
+
+    override fun pullCommand(url: String, branch: String): CommandLine {
+        return CommandLine.parse(
+                String.format(
+                        "hg pull \"%s\" -b %s",
+                        url,
+                        branch
+                )
+        )
+    }
+    override fun load(repoInfo: JsonObject) {
+        super.load(repoInfo)
+        val update = CommandLine.parse("hg update")
+        executor.execute(update)
+    }
+}
+object RepoloadersFactory {
+    fun newLoader(type: String) : ConsoleRepoloader? {
+        when (type) {
+            "git"   -> return GitLoader()
+            "hg"    -> return HgLoader()
+            else    -> return null
+        }
+    }
+}
+
+data class RepoInfo(val url: String, val branch: String, val loadPath: String, val type: String)
+class RepoLoaderVerticle : AbstractVerticle() {
 
     override fun start() {
-        //println("Verticle RepoLoader start message")
-        log.info("Verticle RepoLoader start message")
         val eb = vertx.eventBus()
-        val consumer = eb.consumer<String>("RepoLoader")
+        val consumer = eb.consumer<JsonObject>("RepoLoader")
         consumer.handler { message ->
-            launch(Unconfined) {
-                val repoInfo: RepoInfo = jacksonObjectMapper().readValue(message.body())
+            launch(VertxContext(util.vertx)) {
                 val job = async(CommonPool) {
-                    LoadRepo(repoInfo)
+                    LoadRepo(message.body())
                 }
                 val status = job.await()
-                message.reply(repoInfo.location + abs(repoInfo.url.hashCode()))
+                message.reply(message.body())
             }
         }
     }
 
     override fun stop() {
-        //println("Verticle stop message")
-        log.info("Verticle RepoLoader stop message")
+        println("Verticle stop message")
     }
 
-    suspend fun LoadRepo(repoInfo: RepoInfo): Unit {
+    suspend fun LoadRepo(repoInfo: JsonObject): Unit {
+
 
         val loadRes = vxt<AsyncResult<String>> {
-            System.out.println("Start loading repo: " + repoInfo.url)
-            val git: Git;
-            val loadToPath = Paths.get(repoInfo.location + abs(repoInfo.url.hashCode()))
-            if (!Files.exists(loadToPath)) {
-                git = org.eclipse.jgit.api.Git.cloneRepository()
-                        .setURI(repoInfo.url)
-                        .setDirectory(loadToPath.toFile())
-                        .setBranch(repoInfo.branch)
-                        .call()
-                git.close()
-            } else {
-                val repo = FileRepositoryBuilder.create(File(repoInfo.location + abs(repoInfo.url.hashCode()) + "/.git"))
-                git = Git(repo);
-                git.remoteSetUrl().setUri(URIish(repoInfo.url))
-                git.pull().setRemoteBranchName(repoInfo.branch).call()
-                git.close()
-            }
+            val type = repoInfo.getString("type");
+            val loader = RepoloadersFactory.newLoader(type)
+            if (loader != null)
+                loader.load(repoInfo)
+            else
+                throw Exception("Wrong repos type")
             it.handle(null)
         }
+    }
+}
+
+suspend fun deployLoadVerticleAsync(): String {
+    return vxa<String>({ callback ->
+        vertx.deployVerticle(RepoLoaderVerticle(), callback)
+    })
+}
+
+suspend fun loadRepositoryAsync(info: JsonObject): Message<JsonObject> {
+    return vxa<Message<JsonObject>> {
+        eb.send("RepoLoader", info, it)
     }
 }
 

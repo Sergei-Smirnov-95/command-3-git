@@ -8,6 +8,8 @@ import io.vertx.core.eventbus.EventBus
 import io.vertx.core.eventbus.Message
 import kotlinx.coroutines.experimental.*
 //import io.vertx.ext.web.RoutingContext
+import kotlinx.coroutines.experimental.CoroutineExceptionHandler
+import kotlinx.coroutines.experimental.CoroutineName
 import java.lang.Error
 import java.lang.reflect.Method
 import java.util.concurrent.TimeUnit
@@ -89,20 +91,7 @@ class VertxContext(val vertx: Vertx) : CoroutineDispatcher() {
     override fun dispatch(context: CoroutineContext, block: Runnable) =
             vertx.runOnContext({ block.run() })
 
-//    override fun scheduleResumeAfterDelay(time: Long, unit: TimeUnit, continuation: CancellableContinuation<Unit>) {
-//        val id = vertx.setTimer(unit.toMillis(time), { ResumeUndispatchedRunnable(this, continuation).run() })
-//        continuation.invokeOnCompletion { vertx.cancelTimer(id) }
-//    }
-//
-//    override fun invokeOnTimeout(time: Long, unit: TimeUnit, block: Runnable): DisposableHandle =
-//            DisposableVertxTimerHandle(
-//                    vertx,
-//                    vertx.setTimer(unit.toMillis(time), { block.run() }))
 }
-
-
-
-
 /*
 fun Loggable.LogExceptions() = WithExceptionsContext(
         { log.error("Oops!", it) }
@@ -128,20 +117,3 @@ fun Loggable.WithExceptions(ctx: RoutingContext) = WithExceptionsContext(
 // NOTE: suspendCoroutineOrReturn<> is not recommended by kotlin devs, BUT,
 // however, suspendCoroutine<>, the only alternative, does *not* work correctly if suspend fun has no
 // suspension points.
-
-/*
-inline suspend fun <R> KFunction<R>.callAsync(vararg args: Any?) =
-        when {
-            isSuspend -> suspendCoroutineOrReturn<R> { call(*args, it) }
-            else -> throw Error("$this cannot be called as async")
-        }
-
-val Method.isKotlinSuspend
-    get() = parameters.lastOrNull()?.type == kotlin.coroutines.experimental.Continuation::class.java
-
-inline suspend fun Method.invokeAsync(receiver: Any?, vararg args: Any?) =
-        when {
-            isKotlinSuspend -> suspendCoroutineOrReturn<Any?> { invoke(receiver, *args, it) }
-            else -> throw Error("$this cannot be invoked as async")
-        }
-*/
