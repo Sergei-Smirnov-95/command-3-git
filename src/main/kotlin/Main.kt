@@ -16,6 +16,7 @@ import io.vertx.core.json.JsonObject
 import kotlinx.coroutines.experimental.*
 import org.apache.commons.exec.CommandLine
 import org.apache.commons.exec.DefaultExecutor
+import java.lang.Math.abs
 import java.nio.file.Files
 import java.nio.file.Paths
 
@@ -79,14 +80,16 @@ class MainVerticle : AbstractVerticle(), Loggable {
                     var mvn = message.body().getString("mvn")
                     var repo = message.body().getJsonObject("repo")
                     var loadResult = loadRepositoryAsync(repo)
-                    var hash = loadResult.body().getString("url").hashCode()
+                    var hash = abs(loadResult.body().getString("url").hashCode())
+                    var path = "${loadResult.body().getString("loadPath")}"
                     //doInCommandLineAsync("xcopy C:${loadResult.body().getString("loadPath")} C:\\tmp /s /e")
-                    // FIXME cwd передается аргументом при выполнении команды, нужно настроить вместо явного tmp
-                    doInCommandLineAsync("cp -r ${loadResult.body().getString("loadPath")} /tmp/$hash", "/tmp")
+                    // FIXME cwd теперь передается аргументом при выполнении команды, нужно настроить
+                    // Т.к. логика будет переделываться, подправлено до рабочего состояния в старой логике.
                     eb.publish("builder.build", JsonObject(
                             mapOf(
                                     "id" to "$hash",
-                                    "command" to mvn
+                                    "command" to mvn,
+                                    "cwd" to "$path"
                             )
                     ))
                     message.reply(message.body())
@@ -98,7 +101,6 @@ class MainVerticle : AbstractVerticle(), Loggable {
     }
 
     override fun stop() = runBlocking<Unit> {
-        //println("Verticle stop message")
         vxu { util.vertx.undeploy(buildVerticle, it) }
         vxu { util.vertx.undeploy(loadVerticle, it) }
         vxu { util.vertx.close(it) }

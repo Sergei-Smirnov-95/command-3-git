@@ -5,18 +5,18 @@ import io.vertx.core.eventbus.Message
 import io.vertx.core.json.JsonObject
 import kotlinx.coroutines.experimental.launch
 import util.*
+import java.io.File
 
 
 class BuildVerticle() : AbstractVerticle(), Loggable {
-    val cwd = "/tmp"
 
     override fun start() {
-        //println("BuildVerticle start message")
         log.info("BuildVerticle start message")
         eb.consumer<JsonObject>("builder.build") { message ->
             if (checkMessage(message)) {
                 val body = message.body()
                 val command = body.getString("command")
+                val cwd = body.getString("cwd")
                 val commandId = body.getString("id")
                 launch(VertxContext(vertx)) {
                     val res = doInCommandLineAsync(command, cwd)
@@ -25,6 +25,8 @@ class BuildVerticle() : AbstractVerticle(), Loggable {
                     )
                 }
             }
+            else
+                message.fail(1, "Wrong format")
         }
     }
 
@@ -32,9 +34,14 @@ class BuildVerticle() : AbstractVerticle(), Loggable {
         log.info("BuildVerticle stop message")
     }
 
-
     private fun checkMessage(message: Message<JsonObject>): Boolean {
-        return true
+        val body = message.body()
+        if (body.containsKey("id") && body.containsKey("cwd") && body.containsKey("command")){
+            val dir = File(body.getString("cwd"))
+            if (dir.isDirectory)
+                return true
+        }
+        return false
     }
 }
 

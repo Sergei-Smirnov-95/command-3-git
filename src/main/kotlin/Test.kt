@@ -16,17 +16,21 @@ import kotlinx.coroutines.experimental.delay
 
 fun main(args: Array<String>) = runBlocking<Unit> {
     val emb = EmbeddedBuilder()
+    val sep = "/"
+    val root = "/tmp/"
+    // FIXME не работает для рекурсивных папок
+    val loadPath = root + "repos${sep}"
     emb.init()
     emb.run {
         repo {
             url("https://github.com/JetBrains/kotlin-examples.git")
             branch("master")
             type("git")
-            loadPath("\\repos\\kotlin")
+            loadPath(loadPath)
         }
         mvn {
             test {
-                path("/tmp/1/maven/hello-world")
+                path("maven/hello-world")
             }
         }
     }
