@@ -59,5 +59,13 @@ class MavenBuilderTest {
         assertEquals("mvn help:describe -Dcmd=compiler:compile install -Dmaven.test.skip=true", res.toString())
     }
 
+    @Test
+    fun testGlobalDefine() {
+        val res = mvn {
+            define ("maven.test.skip=true")
+            test()
+        }
+        assertEquals("mvn -Dmaven.test.skip=true test", res.toString())
+    }
 }
 

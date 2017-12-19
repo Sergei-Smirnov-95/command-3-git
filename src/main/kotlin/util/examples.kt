@@ -89,3 +89,18 @@ fun foo() {
     }
 }
 */
+
+/*
+suspend fun db_shenanigans() {
+    val settings = File("src/settings/db-settings.json")
+    val postgreSQLClientConfig = JsonObject(settings.readText())
+    val client = PostgreSQLClient.createShared(vertx, postgreSQLClientConfig)
+    val connection = vxa<SQLConnection> { client.getConnection(it) }
+    val result = vxa<ResultSet> { connection.query("select * from test;", it) }
+    for (res in result.results) {
+        println(res)
+    }
+    vxu { connection.close(it) }
+    vxu { client.close(it) }
+}
+*/
