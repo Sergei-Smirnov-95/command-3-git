@@ -1,18 +1,11 @@
 package testPackage
 
-import database.deployDBVerticleAsync
-import builder.*
 import repoloader.*
-import io.vertx.core.AsyncResult
-import io.vertx.core.Handler
 import io.vertx.core.eventbus.Message
-import kotlinx.coroutines.experimental.launch
 import kotlinx.coroutines.experimental.runBlocking
 import util.*
-import io.vertx.core.eventbus.EventBus
 import io.vertx.core.json.Json
-import io.vertx.core.json.JsonObject
-import kotlinx.coroutines.experimental.delay
+
 
 fun main(args: Array<String>) = runBlocking<Unit> {
     val emb = EmbeddedBuilder()
@@ -55,6 +48,7 @@ suspend fun doSomethingUseful() {
         val rlVerticle = RepoLoaderVerticle()
         val deployRes = vxt<AsyncResult<String>> {
             println("Deploy verticle from coroutine")
+            //log.info("Deploy verticle from coroutine")
             vertx.deployVerticle(rlVerticle, it)
         }
 
@@ -96,9 +90,10 @@ suspend fun doSomethingUseful() {
             }
             id = deployRes.result()
             println("Deployment success")
+            //log.info("Deployment success")
         } else
             println("Deployment failure")
-
+            //log.info("Deployment failure")
     }
 }
 */

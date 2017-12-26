@@ -9,6 +9,7 @@ import io.vertx.ext.sql.SQLConnection
 import kotlinx.coroutines.experimental.launch
 import util.*
 import java.io.*
+//import util.GlobalLogging.log
 
 
 class DataBaseVerticle() : AbstractVerticle(), Loggable {

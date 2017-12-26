@@ -3,7 +3,6 @@ package repoloader
 import io.vertx.core.AbstractVerticle
 import io.vertx.core.AsyncResult
 import io.vertx.core.eventbus.Message
-import io.vertx.core.json.Json
 import kotlinx.coroutines.experimental.CommonPool
 import kotlinx.coroutines.experimental.async
 import kotlinx.coroutines.experimental.launch
@@ -13,6 +12,7 @@ import io.vertx.core.json.JsonObject
 import org.apache.commons.exec.CommandLine
 import org.apache.commons.exec.DefaultExecutor
 import util.*
+import util.GlobalLogging.log
 
 abstract class ConsoleRepoloader {
     protected val executor = DefaultExecutor()
@@ -85,6 +85,7 @@ data class RepoInfo(val url: String, val branch: String, val loadPath: String, v
 class RepoLoaderVerticle : AbstractVerticle() {
 
     override fun start() {
+        log.info("Verticle RepoLoader start message")
         val eb = vertx.eventBus()
         val consumer = eb.consumer<JsonObject>("RepoLoader")
         consumer.handler { message ->
@@ -99,7 +100,7 @@ class RepoLoaderVerticle : AbstractVerticle() {
     }
 
     override fun stop() {
-        println("Verticle stop message")
+        log.info("Verticle RepoLoader stop message")
     }
 
     suspend fun LoadRepo(repoInfo: JsonObject): Unit {
