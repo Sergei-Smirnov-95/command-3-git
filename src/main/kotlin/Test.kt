@@ -2,22 +2,23 @@ package testPackage
 
 import database.deployDBVerticleAsync
 import builder.*
+import io.vertx.core.AbstractVerticle
 import repoloader.*
 import main.*
 import io.vertx.core.AsyncResult
 import io.vertx.core.Handler
 import io.vertx.core.eventbus.Message
-import kotlinx.coroutines.experimental.launch
-import kotlinx.coroutines.experimental.runBlocking
 import util.*
 import io.vertx.core.eventbus.EventBus
 import io.vertx.core.json.Json
 import io.vertx.core.json.JsonObject
-import kotlinx.coroutines.experimental.delay
+import kotlinx.coroutines.experimental.*
 
 fun main(args: Array<String>) = runBlocking<Unit> {
-    val emb = EmbeddedBuilder
 
+    deployExternalVerticleAsync()
+
+    val emb = EmbeddedBuilder
     emb.run {
         repo {
             url("https://github.com/JetBrains/kotlin-examples.git")
@@ -29,6 +30,7 @@ fun main(args: Array<String>) = runBlocking<Unit> {
                 path("maven/hello-world")
             }
         }
+        resultsListener("external.results")
     }
 
     emb.run {
@@ -42,13 +44,25 @@ fun main(args: Array<String>) = runBlocking<Unit> {
                 path("maven/hello-world")
             }
         }
+        resultsListener("external.results")
     }
 }
 
-suspend fun deployLoadVerticleAsync(): String {
+suspend fun deployExternalVerticleAsync(): String {
     return vxa<String>({ callback ->
-        vertx.deployVerticle(RepoLoaderVerticle(), callback)
+        vertx.deployVerticle(ExternalVerticle(), callback)
     })
+}
+
+class ExternalVerticle : AbstractVerticle(), Loggable {
+
+    override fun start() {
+        val eb = vertx.eventBus()
+        val consumer = eb.consumer<JsonObject>("external.results")
+        consumer.handler { message ->
+            log.info(message.body().getString("id") + ": " + message.body().getString("status"))
+        }
+    }
 }
 
 

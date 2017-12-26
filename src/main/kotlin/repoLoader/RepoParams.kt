@@ -12,7 +12,6 @@ class RepoParams {
     fun url(value: String) = addParam("url", value)
     fun branch(value: String) = addParam("branch", value)
     fun type(value: String) = addParam("type", value)
-    fun loadPath(value: String) = addParam("loadPath", value)
 }
 
 fun repo(addParam: RepoParams.() -> Unit): JsonObject {

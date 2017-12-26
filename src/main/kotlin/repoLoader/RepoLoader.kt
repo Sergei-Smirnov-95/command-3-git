@@ -109,7 +109,7 @@ class RepoLoaderVerticle : AbstractVerticle(),Loggable {
     suspend fun LoadRepo(repoInfo: JsonObject, id: String): Unit {
 
 
-        val loadRes = vxt<AsyncResult<String>> {
+        val loadRes = vxt<AsyncResult<JsonObject>> {
             val type = repoInfo.getString("type");
             val loader = RepoloadersFactory.newLoader(type)
             if (loader != null)
