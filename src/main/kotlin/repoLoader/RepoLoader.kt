@@ -12,6 +12,7 @@ import java.nio.file.Paths
 import io.vertx.core.json.JsonObject
 import org.apache.commons.exec.CommandLine
 import org.apache.commons.exec.DefaultExecutor
+import util.Loggable
 import util.*
 
 abstract class ConsoleRepoloader {
@@ -82,7 +83,7 @@ object RepoloadersFactory {
 }
 
 data class RepoInfo(val url: String, val branch: String, val loadPath: String, val type: String)
-class RepoLoaderVerticle : AbstractVerticle() {
+class RepoLoaderVerticle : AbstractVerticle(),Loggable {
 
     override fun start() {
         log.info("Verticle RepoLoader start message")
