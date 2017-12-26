@@ -54,8 +54,8 @@ class BuilderTask {
                 "subtask" to subtask
         )))
     }
-    fun resultsListener(chanel: String): Unit {
-        resListener = chanel
+    fun resultsListener(channel: String): Unit {
+        resListener = channel
     }
 }
 
@@ -111,12 +111,14 @@ class MainVerticle : AbstractVerticle(), Loggable {
                     var subtaskType = jsonObj.getString("type");
                     var subtask = jsonObj.getJsonObject("subtask")
                     var taskId = jsonObj.getString("taskId")
+                    // TODO: Добавить обработку статуса возвращаемого результата
                     when (subtaskType) {
                         "repo" -> loadRepositoryAsync(subtask, taskId)
-                        //"mvn"  -> doBuilderTaskAsync(subtask, taskId)
+                        "mvn"  -> doBuilderTaskAsync(subtask, taskId)
 
                     }
                 }
+                // TODO: Если все подзадачи завершились успешно, отправить соответствующее сообщение
                 message.reply(message.body())
             }
         }
