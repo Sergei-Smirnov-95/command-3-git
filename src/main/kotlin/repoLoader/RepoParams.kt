@@ -15,8 +15,8 @@ class RepoParams {
     fun loadPath(value: String) = addParam("loadPath", value)
 }
 
-fun repo(addParam: RepoParams.() -> Unit): RepoParams {
+fun repo(addParam: RepoParams.() -> Unit): JsonObject {
     val repo = RepoParams()
     repo.addParam()
-    return repo
+    return repo.paramsObj
 }

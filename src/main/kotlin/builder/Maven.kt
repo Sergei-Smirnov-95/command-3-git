@@ -1,10 +1,39 @@
 package builder
 
+import io.vertx.core.json.JsonObject
+
+/*
+    DSL для описания команд Maven.
+    Общая структура:
+    mvn[<operation_prefix><operation_name>[<option_prefix><option_key>[<option_separator><option_value>](0+)](0+)]
+    На уровне операций задаются команды (этапы) сборки, а также глобальные определения -D.
+    На уровне опций задаются аргументы в виде ключей с возможными значениями.
+    Команд и операций может быть несколько.
+    Можно создать собственные операции через custom и опции через option.
+    По умолчанию префикс операции " ", префикс опции " -", разделитель опции " ", опция задана только ключом.
+    mvn{
+        define(<глобальный аргумент, задаваемый -D>)
+        define(...)
+        package{
+            define(<локальный аргумент -D только для данной команды>)
+            path(<путь сборки>)
+            option(<ключ>)
+            option(<ключ>, <значение>)
+            ...
+        }
+        custom(<этап сборки / команда>){
+            option(...)
+            ...
+        }
+    }
+    Объект преобразовывается в команду через toString().
+ */
+
 interface Renderable {
     fun render(builder: StringBuilder)
 }
 
-abstract class MavenOperation(val name: String): Renderable{
+abstract class MavenOperation(val name: String, val prefix: String = " "): Renderable{
     private val options = arrayListOf<OperationOption>()
 
     protected fun <T: OperationOption> initOption(option: T, init: T.() -> Unit): T{
@@ -14,31 +43,40 @@ abstract class MavenOperation(val name: String): Renderable{
     }
 
     override fun render(builder: StringBuilder) {
-        builder.append(" ${this.name}")
+        builder.append("${this.prefix}${this.name}")
         for (option in options) {
             option.render(builder)
         }
     }
 
-    fun option(key: String, value: String?=null) = initOption(Option(key, value)) {}
-    fun path(path: String) = initOption(builder.Path(path = path)) {}
+    fun option(key: String, value: String?=null,
+               prefix: String = " -", separator: String = " ") = initOption(Option(key, value, prefix, separator)) {}
+    fun path(path: String) = initOption(Path(path = path)) {}
+    fun define(property: String) = initOption(Define(property = property)) {}
 }
 
+class MavenCustomOperation(name: String, prefix: String = " "): MavenOperation(name, prefix)
 class MavenPackage: MavenOperation("package")
 class MavenTest: MavenOperation("test")
 class MavenClean: MavenOperation("clean")
+class MavenGlobalDefine: MavenOperation("-D")
 
-abstract class OperationOption(val key: String, val value: String?=null): Renderable{
+abstract class OperationOption(val key: String,
+                               val value: String?=null,
+                               val prefix: String = " -",
+                               val separator: String = " "): Renderable{
     override fun render(builder: StringBuilder){
         if (value != null)
-            builder.append(" -${this.key} ${this.value}")
+            builder.append("${this.prefix}${this.key}${this.separator}${this.value}")
         else
-            builder.append(" -${this.key}")
+        builder.append("${this.prefix}${this.key}")
     }
 }
 
+class Option(key: String, value: String?, prefix: String = " -", separator: String = " "):
+        OperationOption(key, value, prefix, separator)
 class Path(path: String): OperationOption(key = "f", value = path)
-class Option(key: String, value: String?): OperationOption(key, value)
+class Define(property: String): OperationOption(key = "D", value = property, separator = "")
 
 class Mvn: Renderable {
     val opertaions = arrayListOf<MavenOperation>()
@@ -62,13 +100,23 @@ class Mvn: Renderable {
         return operation
     }
 
-    fun test(init: MavenTest.() -> Unit) = initOperation(MavenTest(), init)
-    fun clean(init: MavenClean.() -> Unit) = initOperation(MavenClean(), init)
-    fun pckg(init: MavenPackage.() -> Unit) = initOperation(MavenPackage(), init)
+    fun test(init: MavenTest.() -> Unit = {}) = initOperation(MavenTest(), init)
+    fun clean(init: MavenClean.() -> Unit = {}) = initOperation(MavenClean(), init)
+    fun pckg(init: MavenPackage.() -> Unit = {}) = initOperation(MavenPackage(), init)
+    fun define(argument: String) = initOperation(MavenGlobalDefine(), {
+        option(argument, prefix="")
+    })
+    fun custom(
+            operation: String,
+            prefix: String = " ",
+            init: MavenCustomOperation.() -> Unit = {}
+    ) = initOperation(MavenCustomOperation(operation, prefix), init)
 }
 
-fun mvn(init: Mvn.() -> Unit): Mvn {
+fun mvn(init: Mvn.() -> Unit): JsonObject {
     val mvn = Mvn()
     mvn.init()
-    return mvn
+    return JsonObject(mapOf(
+        "command" to mvn.toString()
+    ))
 }

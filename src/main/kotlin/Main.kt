@@ -1,7 +1,7 @@
 /**
  * Created by User on 07.11.2017.
  */
-package testPackage
+package main
 
 import builder.*
 import io.vertx.core.AbstractVerticle
@@ -12,96 +12,72 @@ import io.vertx.core.eventbus.Message
 import util.*
 import io.vertx.core.eventbus.EventBus
 import io.vertx.core.json.Json
+import io.vertx.core.json.JsonArray
 import io.vertx.core.json.JsonObject
 import kotlinx.coroutines.experimental.*
 import org.apache.commons.exec.CommandLine
 import org.apache.commons.exec.DefaultExecutor
+import java.lang.Math.abs
 import java.nio.file.Files
 import java.nio.file.Paths
+import java.sql.Timestamp
+
+val sep = "/"
+val root = "/tmp/"
+// FIXME не работает для рекурсивных папок
+val loadPath = root + "repos${sep}"
 
 class BuilderTask {
-    open var mvn = Mvn()
-    open var repo = RepoParams()
+
+    val subtasks = JsonArray()
+    var id = ""
+
+    init {
+        val timestamp = Timestamp(System.currentTimeMillis())
+        id += timestamp.getTime();
+        id += Math.random()
+    }
     fun repo(addParam: RepoParams.() -> Unit): Unit {
-        repo.addParam()
+        var subtask = repoloader.repo(addParam)
+        subtasks.add(JsonObject(mapOf(
+                "type" to "repo",
+                "taskId" to id,
+                "subtask" to subtask
+        )))
     }
     fun mvn(init: Mvn.() -> Unit): Unit {
-        mvn.init()
+        var subtask = builder.mvn(init)
+        subtasks.add(JsonObject(mapOf(
+                "type" to "mvn",
+                "taskId" to id,
+                "subtask" to subtask
+        )))
     }
 }
 
-class EmbeddedBuilder {
-    var mainVerticle = ""
-    var isInitialized = false
-    fun init() = runBlocking<Unit> {
-        mainVerticle = deployMainVerticleAsync()
-        isInitialized = true
-    }
-    fun deinit()= runBlocking<Unit> {
-        vxu { util.vertx.undeploy(mainVerticle, it) }
-        isInitialized = false;
-    }
-
-    fun run(action: BuilderTask.() -> Unit): String {
-        launch(Unconfined) {
-            if (isInitialized) {
-                val bt = BuilderTask()
-                bt.action()
-                val sender = vertx.eventBus().sender<JsonObject>("Main.RunTask");
-                val handler = Handler<AsyncResult<Message<JsonObject>>> { ar ->
-                    if (ar.succeeded())
-                        System.out.println("Ok \n");
-                }
-                sender.send(JsonObject(mapOf(
-                        "mvn" to bt.mvn.toString(),
-                             "repo" to bt.repo.paramsObj
-                )), handler);
-            }
-        }
-        return "Err"
-    }
-}
-
-
-class MainVerticle : AbstractVerticle(), Loggable {
-    var buildVerticle = ""
-    var loadVerticle = ""
-    override fun start() {
-        launch(Unconfined) {
-            buildVerticle = deployBuildVerticleAsync()
-            loadVerticle = deployLoadVerticleAsync()
+object EmbeddedBuilder {
+    init {
+        launch(VertxContext(util.vertx)) {
+            deployMainVerticleAsync()
+            deployBuildVerticleAsync()
+            deployLoadVerticleAsync()
             setUpBuildMessageListenerAsync(eb)
         }
-        val consumer = eb.consumer<JsonObject>("Main.RunTask")
-        consumer.handler { message ->
-            launch(Unconfined) {
-                try {
-                    var mvn = message.body().getString("mvn")
-                    var repo = message.body().getJsonObject("repo")
-                    var loadResult = loadRepositoryAsync(repo)
-                    var hash = loadResult.body().getString("url").hashCode()
-                    //doInCommandLineAsync("xcopy C:${loadResult.body().getString("loadPath")} C:\\tmp /s /e")
-                    doInCommandLineAsync("cp -r ${loadResult.body().getString("loadPath")} /tmp/$hash")
-                    eb.publish("builder.build", JsonObject(
-                            mapOf(
-                                    "id" to "$hash",
-                                    "command" to mvn
-                            )
-                    ))
-                    message.reply(message.body())
-                } catch (e: Exception) {
-                    println(e.message)
-                }
-            }
-        }
     }
 
-    override fun stop() = runBlocking<Unit> {
-        //println("Verticle stop message")
-        vxu { util.vertx.undeploy(buildVerticle, it) }
-        vxu { util.vertx.undeploy(loadVerticle, it) }
-        vxu { util.vertx.close(it) }
-        log.info("Verticle RepoLoader stop message")
+    fun run(action: BuilderTask.() -> Unit): Unit {
+        launch(VertxContext(vertx)) {
+            val bt = BuilderTask()
+            bt.action()
+            val sender = vertx.eventBus().sender<JsonObject>("main.runtask");
+            val handler = Handler<AsyncResult<Message<JsonObject>>> { ar ->
+                if (ar.succeeded())
+                    System.out.println("Ok \n");
+            }
+            sender.send(JsonObject(mapOf(
+                    "subtasks" to bt.subtasks
+            )), handler);
+        }
     }
     suspend fun setUpBuildMessageListenerAsync(eb: EventBus) {
         val consumer = eb.consumer<JsonObject>("results.build")
@@ -111,6 +87,34 @@ class MainVerticle : AbstractVerticle(), Loggable {
         }
         vxu {
             consumer.completionHandler(it)
+        }
+    }
+}
+
+
+class MainVerticle : AbstractVerticle(), Loggable {
+    override fun start() {
+        val consumer = eb.consumer<JsonObject>("main.runtask")
+        consumer.handler { message ->
+            launch(VertxContext(util.vertx)) {
+                try {
+                    var subtasks = message.body().getValue("subtasks") as JsonArray;
+                    for (i in 0..subtasks.count()){
+                        var jsonObj = subtasks.getJsonObject(i);
+                        var subtaskType = jsonObj.getString("type");
+                        var subtask = jsonObj.getJsonObject("subtask")
+                        var taskId = jsonObj.getString("taskId")
+                        when (subtaskType) {
+                            "repo" -> loadRepositoryAsync(subtask, taskId)
+                            "mvn"  -> doBuilderTaskAsync(subtask, taskId)
+
+                        }
+                    }
+                    message.reply(message.body())
+                } catch (e: Exception) {
+                    println(e.message)
+                }
+            }
         }
     }
 }

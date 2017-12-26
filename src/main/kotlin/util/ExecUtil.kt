@@ -1,9 +1,9 @@
 package util
 
 import org.apache.commons.exec.*
-import java.io.File
 import kotlin.coroutines.experimental.Continuation
 import kotlin.coroutines.experimental.suspendCoroutine
+import java.io.*
 
 
 inline suspend fun execResult(crossinline cb: (ExecuteResultHandler) -> Unit) =
@@ -26,10 +26,19 @@ private suspend fun execResultAsync(executor: Executor, cmdLine: CommandLine): I
     }
 }
 
-suspend fun doInCommandLineAsync(instructions: String): Int{
+suspend fun doInCommandLineAsync(instructions: String, cwd: String? = null, logFilePath: String? = null): Int{
     val cmdLine = CommandLine.parse(instructions)
     val executor = DefaultExecutor()
-    executor.setWorkingDirectory(File("C:/"))
-    val exitValue = execResultAsync(executor, cmdLine)
-    return exitValue
+    if (cwd != null)
+        executor.setWorkingDirectory(File(cwd))
+    val streamHandler: PumpStreamHandler
+    if (logFilePath != null) {
+        val out = FileOutputStream(logFilePath, true)
+        streamHandler = PumpStreamHandler(out, out)
+    }
+    else {
+        streamHandler = PumpStreamHandler()
+    }
+    executor.setStreamHandler(streamHandler)
+    return execResultAsync(executor, cmdLine)
 }
