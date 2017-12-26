@@ -85,6 +85,7 @@ data class RepoInfo(val url: String, val branch: String, val loadPath: String, v
 class RepoLoaderVerticle : AbstractVerticle() {
 
     override fun start() {
+        log.info("Verticle RepoLoader start message")
         val eb = vertx.eventBus()
         val consumer = eb.consumer<JsonObject>("RepoLoader")
         consumer.handler { message ->
@@ -99,7 +100,7 @@ class RepoLoaderVerticle : AbstractVerticle() {
     }
 
     override fun stop() {
-        println("Verticle stop message")
+        log.info("Verticle RepoLoader stop message")
     }
 
     suspend fun LoadRepo(repoInfo: JsonObject): Unit {
