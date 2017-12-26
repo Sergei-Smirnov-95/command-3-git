@@ -1,54 +1,80 @@
 package testPackage
 
+import database.deployDBVerticleAsync
+import builder.*
+import io.vertx.core.AbstractVerticle
 import repoloader.*
+import main.*
+import io.vertx.core.AsyncResult
+import io.vertx.core.Handler
 import io.vertx.core.eventbus.Message
-import kotlinx.coroutines.experimental.runBlocking
 import util.*
+import io.vertx.core.eventbus.EventBus
 import io.vertx.core.json.Json
-
+import io.vertx.core.json.JsonObject
+import kotlinx.coroutines.experimental.*
 
 fun main(args: Array<String>) = runBlocking<Unit> {
-    val emb = EmbeddedBuilder()
-    val sep = "/"
-    val root = "/tmp/"
-    // FIXME не работает для рекурсивных папок
-    val loadPath = root + "repos${sep}"
-    emb.init()
+
+    deployExternalVerticleAsync()
+
+    val emb = EmbeddedBuilder
     emb.run {
         repo {
             url("https://github.com/JetBrains/kotlin-examples.git")
             branch("master")
             type("git")
-            loadPath(loadPath)
         }
         mvn {
             test {
                 path("maven/hello-world")
             }
         }
+        resultsListener("external.results")
+    }
+
+    emb.run {
+        repo {
+            url("https://github.com/Sergei-Smirnov-95/team-3-git.git")
+            branch("master")
+            type("git")
+        }
+        mvn {
+            test {
+                path("maven/hello-world")
+            }
+        }
+        resultsListener("external.results")
     }
 }
 
-suspend fun deployLoadVerticleAsync(): String {
+suspend fun deployExternalVerticleAsync(): String {
     return vxa<String>({ callback ->
-        vertx.deployVerticle(RepoLoaderVerticle(), callback)
+        vertx.deployVerticle(ExternalVerticle(), callback)
     })
 }
 
-suspend fun loadRepositoryAsync(info: RepoInfo): Message<String> {
-    return vxa<Message<String>> {
-        eb.send("RepoLoader", Json.encode(info), it)
+class ExternalVerticle : AbstractVerticle(), Loggable {
+
+    override fun start() {
+        val eb = vertx.eventBus()
+        val consumer = eb.consumer<JsonObject>("external.results")
+        consumer.handler { message ->
+            log.info(message.body().getString("id") + ": " + message.body().getString("status"))
+        }
     }
 }
+
+
 /*
 TODO написать, зачем нужно, перенести в примеры или снести
 suspend fun doSomethingUseful() {
     val job = launch(VertxContext(vertx)) {
         var id: String? = null
         val rlVerticle = RepoLoaderVerticle()
+//        val deployRes = vxa<String> {
         val deployRes = vxt<AsyncResult<String>> {
             println("Deploy verticle from coroutine")
-            //log.info("Deploy verticle from coroutine")
             vertx.deployVerticle(rlVerticle, it)
         }
 
@@ -90,10 +116,9 @@ suspend fun doSomethingUseful() {
             }
             id = deployRes.result()
             println("Deployment success")
-            //log.info("Deployment success")
         } else
             println("Deployment failure")
-            //log.info("Deployment failure")
+
     }
 }
 */

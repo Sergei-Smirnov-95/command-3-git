@@ -51,3 +51,18 @@ suspend fun deployBuildVerticleAsync(): String {
     })
 }
 
+suspend fun doBuilderTaskAsync(task: JsonObject, id: String): Message<JsonObject> {
+    return vxa<Message<JsonObject>> {
+        var command = task.getString("command")
+        //doInCommandLineAsync("xcopy C:${loadResult.body().getString("loadPath")} C:\\tmp /s /e")
+        // FIXME cwd теперь передается аргументом при выполнении команды, нужно настроить
+        eb.send("builder.build", JsonObject(
+                mapOf(
+                        "id" to id,
+                        "command" to command,
+                        "cwd" to main.loadPath
+                )
+        ))
+    }
+}
+

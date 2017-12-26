@@ -9,13 +9,13 @@ class MavenBuilderTest {
     @Test
     fun testEmpty() {
         val res = mvn { }
-        assertEquals("mvn", res.toString())
+        assertEquals("mvn", res.getString("command"))
     }
 
     @Test
     fun testSingle() {
         val res = mvn { clean {} }
-        assertEquals("mvn clean", res.toString())
+        assertEquals("mvn clean", res.getString("command"))
     }
 
     @Test
@@ -25,7 +25,7 @@ class MavenBuilderTest {
             pckg {}
             test {}
         }
-        assertEquals("mvn clean package test", res.toString())
+        assertEquals("mvn clean package test", res.getString("command"))
     }
 
     @Test
@@ -43,7 +43,7 @@ class MavenBuilderTest {
                 option("key", "value")
             }
         }
-        assertEquals("mvn clean -e -ff package -f /some/path -o test -key value", res.toString())
+        assertEquals("mvn clean -e -ff package -f /some/path -o test -key value", res.getString("command"))
     }
 }
 

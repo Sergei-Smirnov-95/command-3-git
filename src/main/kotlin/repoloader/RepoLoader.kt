@@ -3,6 +3,7 @@ package repoloader
 import io.vertx.core.AbstractVerticle
 import io.vertx.core.AsyncResult
 import io.vertx.core.eventbus.Message
+import io.vertx.core.json.Json
 import kotlinx.coroutines.experimental.CommonPool
 import kotlinx.coroutines.experimental.async
 import kotlinx.coroutines.experimental.launch
@@ -13,17 +14,19 @@ import org.apache.commons.exec.CommandLine
 import org.apache.commons.exec.DefaultExecutor
 import util.*
 import util.GlobalLogging.log
+import io.vertx.core.eventbus.DeliveryOptions
+
+
 
 abstract class ConsoleRepoloader {
     protected val executor = DefaultExecutor()
     abstract val cmd: String
     abstract fun pullCommand (url: String, branch: String) : CommandLine
 
-    open fun load (repoInfo: JsonObject) : Unit {
+    open fun load (repoInfo: JsonObject, id: String) : Unit {
         val url = repoInfo.getString("url");
         val branch = repoInfo.getString("branch");
-        val loadPath = repoInfo.getString("loadPath")
-        val loadToPath = Paths.get(loadPath)
+        val loadToPath = Paths.get(main.loadPath + id)
         if (!Files.exists(loadToPath)) {
             Files.createDirectory(loadToPath);
             executor.setWorkingDirectory(loadToPath.toFile())
@@ -65,8 +68,8 @@ class HgLoader : ConsoleRepoloader () {
                 )
         )
     }
-    override fun load(repoInfo: JsonObject) {
-        super.load(repoInfo)
+    override fun load(repoInfo: JsonObject, id: String) {
+        super.load(repoInfo, id)
         val update = CommandLine.parse("hg update")
         executor.execute(update)
     }
@@ -82,16 +85,16 @@ object RepoloadersFactory {
 }
 
 data class RepoInfo(val url: String, val branch: String, val loadPath: String, val type: String)
-class RepoLoaderVerticle : AbstractVerticle() {
+class RepoLoaderVerticle : AbstractVerticle(),Loggable {
 
     override fun start() {
         log.info("Verticle RepoLoader start message")
         val eb = vertx.eventBus()
-        val consumer = eb.consumer<JsonObject>("RepoLoader")
+        val consumer = eb.consumer<JsonObject>("repoloader.load")
         consumer.handler { message ->
             launch(VertxContext(util.vertx)) {
                 val job = async(CommonPool) {
-                    LoadRepo(message.body())
+                    LoadRepo(message.body(), message.headers().get("taskId"))
                 }
                 val status = job.await()
                 message.reply(message.body())
@@ -103,14 +106,14 @@ class RepoLoaderVerticle : AbstractVerticle() {
         log.info("Verticle RepoLoader stop message")
     }
 
-    suspend fun LoadRepo(repoInfo: JsonObject): Unit {
+    suspend fun LoadRepo(repoInfo: JsonObject, id: String): Unit {
 
 
-        val loadRes = vxt<AsyncResult<String>> {
+        val loadRes = vxt<AsyncResult<JsonObject>> {
             val type = repoInfo.getString("type");
             val loader = RepoloadersFactory.newLoader(type)
             if (loader != null)
-                loader.load(repoInfo)
+                loader.load(repoInfo, id)
             else
                 throw Exception("Wrong repos type")
             it.handle(null)
@@ -124,10 +127,10 @@ suspend fun deployLoadVerticleAsync(): String {
     })
 }
 
-suspend fun loadRepositoryAsync(info: JsonObject): Message<JsonObject> {
+suspend fun loadRepositoryAsync(info: JsonObject, taskId: String): Message<JsonObject> {
     return vxa<Message<JsonObject>> {
-        eb.send("RepoLoader", info, it)
+        val options = DeliveryOptions()
+        options.addHeader("taskId", taskId)
+        eb.send("repoloader.load", info, options, it)
     }
 }
-
-

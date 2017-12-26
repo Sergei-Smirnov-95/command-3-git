@@ -1,5 +1,7 @@
 package builder
 
+import io.vertx.core.json.JsonObject
+
 /*
     DSL для описания команд Maven.
     Общая структура:
@@ -111,8 +113,10 @@ class Mvn: Renderable {
     ) = initOperation(MavenCustomOperation(operation, prefix), init)
 }
 
-fun mvn(init: Mvn.() -> Unit): Mvn {
+fun mvn(init: Mvn.() -> Unit): JsonObject {
     val mvn = Mvn()
     mvn.init()
-    return mvn
+    return JsonObject(mapOf(
+        "command" to mvn.toString()
+    ))
 }
